@@ -12,12 +12,12 @@
 </p>
 
 <p align="center">
-  <a href="#-features">Features</a> ·
-  <a href="#-install">Install</a> ·
-  <a href="#-claude-scan--chat">Claude</a> ·
-  <a href="#%EF%B8%8F-configuration">Configuration</a> ·
-  <a href="#-data--storage">Data</a> ·
-  <a href="#-contributing">Contributing</a>
+  <a href="#features">Features</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#claude-scan--chat">Claude</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="#data--storage">Data</a> ·
+  <a href="#contributing">Contributing</a>
 </p>
 
 ---
@@ -30,21 +30,21 @@ It's one Python file plus one HTML page. There's nothing to `pip install`, no No
   <img src="docs/screenshots/overview.png" alt="sysdash overview: CPU, memory, battery and temperature tiles, network and storage traces, and a system report" width="100%">
 </p>
 
-## ✨ Features
+## Features
 
 | | |
 |---|---|
-| 🩺 **Glanceable** | One number and one block meter per tile. A single **health** line says `✓ all systems nominal` or lists what's wrong. |
-| 📈 **Live traces** | Network and disk activity for the last hour, with a crosshair and tooltip on hover. |
-| 🌐 **Data usage** | Data downloaded and uploaded today and this month, kept across reboots. VPN traffic (Tailscale or WireGuard) is counted separately. |
-| 💾 **Storage forecast** | Free space plus a *"full in ~2 months"* estimate based on the last 30 days. |
-| 🔔 **Calm alerts** | Smoothed over 30 seconds with hysteresis, so short spikes don't trigger them. One desktop notification per problem, never repeated within 30 minutes. |
-| 🕵️ **Incident log** | A per-minute history, an alert timeline, unexpected shutdowns, crashes, out-of-memory kills and the noisiest journal errors. Kept for 30 days. |
-| ✳️ **Ask Claude** *(optional)* | A read-only scan that writes a report, then a chat about it, using your own Claude Code login. |
-| 🔋 **Battery care** | Health %, charge cycles, time left, and your charge limit shown as dashed cells on the meter. |
-| 🧹 **Space hogs** | A one-click *"what's filling my disk"* scan of your home folder that you can drill into. |
-| 🎨 **Light & dark** | Dark by default, light mode follows your OS, readable on a phone. |
-| 🔒 **Local only** | Listens on `127.0.0.1` with a per-run token for every action. Your data never leaves the machine. |
+| **Glanceable** | One number and one block meter per tile. A single **health** line says `✓ all systems nominal` or lists what's wrong. |
+| **Live traces** | Network and disk activity for the last hour, with a crosshair and tooltip on hover. |
+| **Data usage** | Data downloaded and uploaded today and this month, kept across reboots. VPN traffic (Tailscale or WireGuard) is counted separately. |
+| **Storage forecast** | Free space plus a *"full in ~2 months"* estimate based on the last 30 days. |
+| **Calm alerts** | Smoothed over 30 seconds with hysteresis, so short spikes don't trigger them. One desktop notification per problem, never repeated within 30 minutes. |
+| **Incident log** | A per-minute history, an alert timeline, unexpected shutdowns, crashes, out-of-memory kills and the noisiest journal errors. Kept for 30 days. |
+| **Ask Claude** *(optional)* | A read-only scan that writes a report, then a chat about it, using your own Claude Code login. |
+| **Battery care** | Health %, charge cycles, time left, and your charge limit shown as dashed cells on the meter. |
+| **Space hogs** | A one-click *"what's filling my disk"* scan of your home folder that you can drill into. |
+| **Light & dark** | Dark by default, light mode follows your OS, readable on a phone. |
+| **Local only** | Listens on `127.0.0.1` with a per-run token for every action. Your data never leaves the machine. |
 
 <table>
   <tr>
@@ -65,7 +65,7 @@ It's one Python file plus one HTML page. There's nothing to `pip install`, no No
 > [!NOTE]
 > All screenshots come from `python3 demo.py`, which uses made-up data.
 
-## 🚀 Install
+## Install
 
 **Requirements:** Linux with systemd, and Python 3.10 or newer. That's all.
 
@@ -109,7 +109,7 @@ sysdash picks these up automatically when they're installed and hides what it ca
 
 **Uninstall:** `./uninstall.sh` (your history stays; `./uninstall.sh --purge` deletes it too)
 
-## ✳️ Claude scan & chat
+## Claude scan & chat
 
 <p align="center">
   <img src="docs/screenshots/claude-scan.gif" alt="The Claude icon walking along its track while a scan runs" width="640">
@@ -122,7 +122,7 @@ If the [Claude Code](https://claude.com/claude-code) CLI is installed and logged
 - **It uses your own subscription.** Scans and chat messages count toward your Claude plan's usage. The default model is Sonnet.
 - **It can learn your machine.** Write known-harmless log messages or quirks to `~/.local/state/sysdash/notes.md`, and Claude will take them into account.
 
-## 🖥️ Command line
+## Command line
 
 ```bash
 python3 sysdash.py report 24       # plain-text incident report for the last 24 hours
@@ -132,7 +132,7 @@ python3 sysdash.py --version
 
 The text report is handy to paste into an issue, or to give an AI assistant when you ask *"what went wrong with my system?"*.
 
-## ⚙️ Configuration
+## Configuration
 
 Everything is set with environment variables. For the service, add them to `~/.config/systemd/user/sysdash.service` under `[Service]`.
 
@@ -142,7 +142,7 @@ Everything is set with environment variables. For the service, add them to `~/.c
 | `SYSDASH_DATA` | `~/.local/state/sysdash` | Where history, data totals and Claude reports are stored |
 | `SYSDASH_MODEL` | `sonnet` | Claude model for scans and chat |
 
-## 💾 Data & storage
+## Data & storage
 
 Everything stays in **`~/.local/state/sysdash/`** (or `$SYSDASH_DATA`):
 
@@ -155,7 +155,7 @@ Everything stays in **`~/.local/state/sysdash/`** (or `$SYSDASH_DATA`):
 
 It all takes a few megabytes. To back it up, copy the folder.
 
-## 🔒 Security & privacy
+## Security & privacy
 
 - **Local only.** It binds to `127.0.0.1`, so nothing on your network can reach it.
 - **No DNS rebinding.** Requests addressed to any host other than localhost are refused.
@@ -164,11 +164,11 @@ It all takes a few megabytes. To back it up, copy the folder.
 
 Found a vulnerability? Please see [SECURITY.md](SECURITY.md).
 
-## 🧩 Omarchy extras
+## Omarchy extras
 
 On [Omarchy](https://omarchy.org) you can add a status dot to the bar (dim when fine, sand or clay when something's wrong), an app-launcher entry and a keybinding. See [`contrib/omarchy`](contrib/omarchy/README.md).
 
-## 🤝 Contributing
+## Contributing
 
 Bug reports, ideas and pull requests are welcome. Read **[CONTRIBUTING.md](CONTRIBUTING.md)** first. It's short. Good first contributions:
 
@@ -176,16 +176,16 @@ Bug reports, ideas and pull requests are welcome. Read **[CONTRIBUTING.md](CONTR
 - Packaging (AUR, Nix, deb)
 - Translations of the interface text
 
-## 📝 Changelog
+## Changelog
 
 See **[CHANGELOG.md](CHANGELOG.md)**. The current release is **1.0.0**.
 
-## 🙏 Acknowledgements
+## Acknowledgements
 
 - The palette is derived from the [Omarchy](https://omarchy.org) theme **Last Horizon**.
 - Type is [JetBrains Mono](https://www.jetbrains.com/lp/mono/) and [Inter](https://rsms.me/inter/).
 - Claude features run through the [Claude Code](https://claude.com/claude-code) CLI. sysdash is an independent project, not affiliated with Anthropic.
 
-## 📄 License
+## License
 
 [MIT](LICENSE) © 2026 Syed Mehedi Hussain
