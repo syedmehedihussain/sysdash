@@ -1,0 +1,342 @@
+/* ==========================================================================
+   "Last Horizon" design tokens
+   Derived from the Omarchy theme `last-horizon`.
+   Dark is the native mode; light is a derived companion mode.
+   Usage:  <link rel="stylesheet" href="tokens/tokens.css">
+           <html data-theme="light"> to force light, "dark" to force dark.
+   ========================================================================== */
+
+:root {
+  /* ---------- 1. Primitive palette ---------------------------------------- */
+
+  /* Neutral "ink" scale — warm-tinted greys from the theme */
+  --ink-50:  #fafcfb;  /* foreground            */
+  --ink-100: #e2dddc;  /* bright_foreground     */
+  --ink-200: #cfd3cd;  /* light_foreground      */
+  --ink-300: #a9a3a4;
+  --ink-400: #8a8588;  /* border gradient start */
+  --ink-500: #6e6769;
+  --ink-600: #584e51;  /* selection / muted     */
+  --ink-700: #3a3437;
+  --ink-800: #2a2729;
+  --ink-850: #1e1d1e;  /* btop meter_bg         */
+  --ink-900: #141314;
+  --ink-925: #0c0b0c;  /* background            */
+  --ink-950: #090809;  /* dark_background       */
+  --ink-975: #060606;  /* darker_background     */
+
+  /* Rose — the accent (theme: accent / blue) */
+  --rose-50:  #f2f0ee; --rose-100: #e9e3e0; --rose-200: #d9ccc8; --rose-300: #c7b1ac;
+  --rose-400: #b59790; --rose-500: #977e78; --rose-600: #786560; --rose-700: #5d4e4b;
+  --rose-800: #453b39; --rose-900: #2e2726; --rose-950: #1d1919;
+
+  /* Clay (theme: red) */
+  --clay-50:  #f3eeec; --clay-100: #ece0db; --clay-200: #e0c6be; --clay-300: #d1a89c;
+  --clay-400: #c38b7b; --clay-500: #a27467; --clay-600: #815d53; --clay-700: #644841;
+  --clay-800: #4a3732; --clay-900: #312522; --clay-950: #1e1817;
+
+  /* Teal (theme: green) */
+  --teal-50:  #ecf2f2; --teal-100: #dde7e8; --teal-200: #c3d4d7; --teal-300: #a5bfc4;
+  --teal-400: #87a9b0; --teal-500: #718d92; --teal-600: #5b7075; --teal-700: #47575b;
+  --teal-800: #364144; --teal-900: #252b2d; --teal-950: #181b1c;
+
+  /* Lavender (theme: cyan / active_tab_background) */
+  --lavender-50:  #f0f1f3; --lavender-100: #e5e5ea; --lavender-200: #d1d0da; --lavender-300: #bbb8c8;
+  --lavender-400: #a5a0b6; --lavender-500: #898597; --lavender-600: #6e6a79; --lavender-700: #55535e;
+  --lavender-800: #403e46; --lavender-900: #2b292e; --lavender-950: #1b1a1d;
+
+  /* Plum (theme: yellow) — decorative, dividers, low-emphasis fills */
+  --plum-50:  #e9e9eb; --plum-100: #d6d4d9; --plum-200: #b5b0ba; --plum-300: #908796;
+  --plum-400: #6b5e73; --plum-500: #5a4f60; --plum-600: #49404e; --plum-700: #3a333d;
+  --plum-800: #2c272f; --plum-900: #1f1c21; --plum-950: #161316;
+
+  /* Ice (theme: magenta) */
+  --ice-50:  #f4f8f8; --ice-100: #ecf3f5; --ice-200: #e0ebef; --ice-300: #d2e1e8;
+  --ice-400: #c4d8e2; --ice-500: #a3b3bb; --ice-600: #828e95; --ice-700: #646d73;
+  --ice-800: #4b5155; --ice-900: #313437; --ice-950: #1e1f21;
+
+  /* Sand — extension (not in source theme); fills the missing "warning" role */
+  --sand-50:  #f4f3ed; --sand-100: #eee8de; --sand-200: #e2d7c3; --sand-300: #d6c2a4;
+  --sand-400: #c9ae86; --sand-500: #a79170; --sand-600: #85735a; --sand-700: #675947;
+  --sand-800: #4c4235; --sand-900: #322c24; --sand-950: #1f1b18;
+
+  /* Halo — the signature focus/active color (theme: active_border_color) */
+  --halo: #d6d3de;
+
+  /* ---------- 2. Typography ----------------------------------------------- */
+  --font-mono: "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans: "Inter", "Adwaita Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-mono);
+  --font-body: var(--font-sans);
+
+  /* Type scale — major third (1.25), 16px base */
+  --text-2xs: 0.6875rem; /* 11 */
+  --text-xs:  0.75rem;   /* 12 */
+  --text-sm:  0.875rem;  /* 14 */
+  --text-md:  1rem;      /* 16 */
+  --text-lg:  1.25rem;   /* 20 */
+  --text-xl:  1.5625rem; /* 25 */
+  --text-2xl: 1.9375rem; /* 31 */
+  --text-3xl: 2.4375rem; /* 39 */
+  --text-4xl: 3.0625rem; /* 49 */
+  --text-5xl: 3.8125rem; /* 61 */
+  --text-display: clamp(2.4375rem, 6vw + 1rem, 4.75rem);
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --leading-tight: 1.1;
+  --leading-snug: 1.3;
+  --leading-normal: 1.55;
+  --leading-relaxed: 1.7;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.04em;
+  --tracking-caps: 0.12em;
+
+  --measure: 68ch;
+
+  /* ---------- 3. Space, size, layout --------------------------------------- */
+  --space-0: 0;
+  --space-px: 1px;
+  --space-0-5: 0.125rem; /* 2  */
+  --space-1: 0.25rem;    /* 4  */
+  --space-2: 0.5rem;     /* 8  */
+  --space-3: 0.75rem;    /* 12 */
+  --space-4: 1rem;       /* 16 */
+  --space-5: 1.25rem;    /* 20 */
+  --space-6: 1.5rem;     /* 24 */
+  --space-8: 2rem;       /* 32 */
+  --space-10: 2.5rem;    /* 40 */
+  --space-12: 3rem;      /* 48 */
+  --space-16: 4rem;      /* 64 */
+  --space-20: 5rem;      /* 80 */
+  --space-24: 6rem;      /* 96 */
+  --space-32: 8rem;      /* 128 */
+
+  --container-sm: 640px;
+  --container-md: 768px;
+  --container-lg: 1024px;
+  --container-xl: 1280px;
+  --container-2xl: 1440px;
+  --gutter: clamp(1rem, 3vw, 2rem);
+
+  --control-sm: 2rem;    /* 32 */
+  --control-md: 2.5rem;  /* 40 */
+  --control-lg: 3rem;    /* 48 */
+
+  /* ---------- 4. Shape ----------------------------------------------------- */
+  --radius-none: 0;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  --border-width: 1px;
+  --border-width-strong: 2px;
+
+  /* ---------- 5. Motion ---------------------------------------------------- */
+  --duration-instant: 80ms;
+  --duration-fast: 140ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --duration-slower: 520ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-linear: linear;
+
+  /* ---------- 6. Z-index --------------------------------------------------- */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 100;
+  --z-dropdown: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+
+  /* ---------- 7. Breakpoints (reference — use in media queries) ----------- */
+  /* sm 640 · md 768 · lg 1024 · xl 1280 · 2xl 1536 */
+}
+
+/* ==========================================================================
+   Semantic tokens — DARK (native)
+   ========================================================================== */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Backgrounds */
+  --bg-deep:     var(--ink-975);
+  --bg-sunken:   var(--ink-950);
+  --bg-canvas:   var(--ink-925);
+  --bg-surface:  var(--ink-900);
+  --bg-raised:   var(--ink-850);
+  --bg-overlay:  var(--ink-800);
+  --bg-hover:    rgb(226 221 220 / 0.05);
+  --bg-pressed:  rgb(226 221 220 / 0.09);
+  --bg-selected: rgb(88 78 81 / 0.55);
+  --bg-inverse:  var(--ink-100);
+  --bg-scrim:    rgb(6 6 6 / 0.72);
+
+  /* Text */
+  --text-strong:    var(--ink-50);
+  --text-primary:   var(--ink-100);
+  --text-secondary: var(--ink-200);
+  --text-muted:     var(--ink-400);
+  --text-disabled:  var(--ink-600);
+  --text-inverse:   var(--ink-925);
+  --text-link:      var(--rose-300);
+  --text-link-hover:var(--rose-200);
+
+  /* Borders */
+  --border-subtle:  var(--ink-850);
+  --border-default: var(--ink-700);
+  --border-strong:  var(--ink-600);
+  --border-focus:   var(--halo);
+  --border-active-gradient: linear-gradient(45deg, rgb(138 133 136 / 0.93), rgb(226 221 220 / 0.93));
+
+  /* Accent (rose) */
+  --accent:          var(--rose-400);
+  --accent-hover:    var(--rose-300);
+  --accent-pressed:  var(--rose-500);
+  --accent-subtle:   var(--rose-900);
+  --accent-muted:    var(--rose-800);
+  --accent-text:     var(--rose-300);
+  --on-accent:       var(--ink-925);
+
+  /* Secondary (lavender) */
+  --secondary:        var(--lavender-400);
+  --secondary-hover:  var(--lavender-300);
+  --secondary-subtle: var(--lavender-900);
+  --on-secondary:     var(--ink-925);
+
+  /* Status */
+  --success: var(--teal-400);      --success-subtle: var(--teal-900);      --success-border: var(--teal-700);
+  --danger:  var(--clay-400);      --danger-subtle:  var(--clay-900);      --danger-border:  var(--clay-700);
+  --warning: var(--sand-400);      --warning-subtle: var(--sand-900);      --warning-border: var(--sand-700);
+  --info:    var(--ice-400);       --info-subtle:    var(--ice-900);       --info-border:    var(--ice-700);
+  --on-status: var(--ink-925);
+
+  /* Decorative */
+  --divider: var(--plum-400);
+  --highlight: var(--ice-400);    /* keyboard hints, key figures (btop hi_fg) */
+
+  /* Data visualisation — categorical order */
+  --data-1: var(--rose-400);
+  --data-2: var(--teal-400);
+  --data-3: var(--lavender-400);
+  --data-4: var(--clay-400);
+  --data-5: var(--ice-400);
+  --data-6: var(--sand-400);
+  --data-7: var(--plum-300);
+
+  /* Gradients (from btop) */
+  --gradient-heat:   linear-gradient(90deg, var(--teal-400), var(--plum-400), var(--clay-400));
+  --gradient-signal: linear-gradient(90deg, var(--rose-400), var(--lavender-400), var(--ice-400));
+  --gradient-dusk:   linear-gradient(135deg, var(--ink-925) 0%, var(--plum-900) 55%, var(--rose-900) 100%);
+  --gradient-horizon:linear-gradient(180deg, transparent 0%, rgb(181 151 144 / 0.10) 70%, rgb(196 216 226 / 0.06) 100%);
+
+  /* Elevation — dark UIs lean on borders + surface steps, shadows are a hint */
+  --shadow-xs: 0 1px 0 rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px var(--border-subtle);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.6), 0 0 0 1px var(--border-default);
+  --shadow-lg: 0 16px 40px -8px rgb(0 0 0 / 0.75), 0 0 0 1px var(--border-default);
+  --shadow-glow: 0 0 0 1px var(--rose-700), 0 0 24px -4px rgb(181 151 144 / 0.35);
+  --focus-ring: 0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--halo);
+}
+
+/* ==========================================================================
+   Semantic tokens — LIGHT (derived companion)
+   ========================================================================== */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-deep:     #e9e5e4;
+  --bg-sunken:   #f2efee;
+  --bg-canvas:   var(--ink-50);
+  --bg-surface:  #ffffff;
+  --bg-raised:   #ffffff;
+  --bg-overlay:  #ffffff;
+  --bg-hover:    rgb(12 11 12 / 0.04);
+  --bg-pressed:  rgb(12 11 12 / 0.08);
+  --bg-selected: rgb(181 151 144 / 0.22);
+  --bg-inverse:  var(--ink-925);
+  --bg-scrim:    rgb(12 11 12 / 0.45);
+
+  --text-strong:    var(--ink-925);
+  --text-primary:   var(--ink-850);
+  --text-secondary: var(--ink-700);
+  --text-muted:     var(--ink-500);
+  --text-disabled:  var(--ink-300);
+  --text-inverse:   var(--ink-50);
+  --text-link:      var(--rose-600);
+  --text-link-hover:var(--rose-700);
+
+  --border-subtle:  #ece8e7;
+  --border-default: #ddd7d6;
+  --border-strong:  var(--ink-300);
+  --border-focus:   var(--ink-600);
+  --border-active-gradient: linear-gradient(45deg, var(--ink-600), var(--rose-400));
+
+  --accent:          var(--rose-600);
+  --accent-hover:    var(--rose-700);
+  --accent-pressed:  var(--rose-800);
+  --accent-subtle:   var(--rose-50);
+  --accent-muted:    var(--rose-100);
+  --accent-text:     var(--rose-600);
+  --on-accent:       var(--ink-50);
+
+  --secondary:        var(--lavender-600);
+  --secondary-hover:  var(--lavender-700);
+  --secondary-subtle: var(--lavender-50);
+  --on-secondary:     var(--ink-50);
+
+  --success: var(--teal-600);  --success-subtle: var(--teal-50);  --success-border: var(--teal-200);
+  --danger:  var(--clay-600);  --danger-subtle:  var(--clay-50);  --danger-border:  var(--clay-200);
+  --warning: var(--sand-700);  --warning-subtle: var(--sand-50);  --warning-border: var(--sand-200);
+  --info:    var(--ice-700);   --info-subtle:    var(--ice-50);   --info-border:    var(--ice-300);
+  --on-status: var(--ink-50);
+
+  --divider: var(--plum-200);
+  --highlight: var(--lavender-600);
+
+  --data-1: var(--rose-600);
+  --data-2: var(--teal-600);
+  --data-3: var(--lavender-600);
+  --data-4: var(--clay-500);
+  --data-5: var(--ice-700);
+  --data-6: var(--sand-600);
+  --data-7: var(--plum-400);
+
+  --gradient-heat:   linear-gradient(90deg, var(--teal-500), var(--plum-400), var(--clay-500));
+  --gradient-signal: linear-gradient(90deg, var(--rose-500), var(--lavender-500), var(--ice-600));
+  --gradient-dusk:   linear-gradient(135deg, var(--ink-50) 0%, var(--lavender-50) 55%, var(--rose-100) 100%);
+  --gradient-horizon:linear-gradient(180deg, transparent 0%, rgb(181 151 144 / 0.14) 70%, rgb(196 216 226 / 0.18) 100%);
+
+  --shadow-xs: 0 1px 0 rgb(12 11 12 / 0.04);
+  --shadow-sm: 0 1px 2px rgb(12 11 12 / 0.06), 0 0 0 1px var(--border-subtle);
+  --shadow-md: 0 6px 16px -4px rgb(12 11 12 / 0.12), 0 0 0 1px var(--border-default);
+  --shadow-lg: 0 20px 44px -12px rgb(12 11 12 / 0.22), 0 0 0 1px var(--border-default);
+  --shadow-glow: 0 0 0 1px var(--rose-300), 0 0 24px -4px rgb(120 101 96 / 0.25);
+  --focus-ring: 0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--ink-600);
+}
+
+/* Last Horizon is dark-native: with no data-theme set it stays dark.
+   To follow the OS, set data-theme from JS using matchMedia('(prefers-color-scheme: light)'). */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0ms;
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+    --duration-slower: 0ms;
+  }
+}

@@ -1,0 +1,45 @@
+name: Bug report
+description: Something is broken or shows wrong values
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead. Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the report tab
+        2. Click …
+  - type: input
+    id: version
+    attributes:
+      label: sysdash version
+      description: "Output of `python3 sysdash.py --version`"
+      placeholder: sysdash 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distro, kernel and hardware
+      placeholder: Fedora 42, kernel 6.16, Framework 13 (AMD)
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Incident report (optional)
+      description: "Output of `python3 sysdash.py report 24`. Remove anything you don't want public."
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Service log (optional)
+      description: "Output of `journalctl --user -u sysdash -n 50`"
+      render: text

@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sysdash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
+<script>
+  // Last Horizon is dark-native; follow the OS when it asks for light.
+  // ?theme=light|dark pins a mode (handy for screenshots).
+  (() => { const mq = matchMedia("(prefers-color-scheme: light)");
+    const pin = new URLSearchParams(location.search).get("theme");
+    const apply = () => document.documentElement.dataset.theme = pin === "light" || pin === "dark" ? pin : mq.matches ? "light" : "dark";
+    apply(); mq.addEventListener("change", apply); })();
+</script>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh;
+  background: var(--bg-canvas); color: var(--text-primary);
+  font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+}
+.mono, .num, .val, .tree, .eyebrow { font-family: var(--font-mono); }
+.num, .val { font-variant-numeric: tabular-nums; }
+
+.shell { max-width: var(--container-2xl); margin: 0 auto; padding: var(--space-6) var(--gutter) var(--space-10); }
+
+/* ---- header */
+.top { display: grid; grid-template-columns: auto 1fr; gap: var(--space-4) var(--space-8); align-items: center; margin-bottom: var(--space-6); }
+.id h1 { margin: 0; font-family: var(--font-mono); font-weight: var(--weight-medium); font-size: var(--text-lg); color: var(--text-strong); letter-spacing: var(--tracking-wide); text-transform: uppercase; }
+.id p { margin: 2px 0 0; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.note {
+  display: flex; align-items: center; gap: var(--space-3); min-height: 48px; padding: 0 var(--space-4);
+  border: 2px solid transparent;
+  background: linear-gradient(var(--bg-surface), var(--bg-surface)) padding-box, var(--border-active-gradient) border-box;
+  font-family: var(--font-mono); font-size: var(--text-sm); min-width: 0;
+}
+.note .k { color: var(--text-muted); white-space: nowrap; }
+.note .msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note .ok { color: var(--success); }
+.note .warn { color: var(--warning); }
+.note .crit { color: var(--danger); }
+.note .sep { color: var(--text-disabled); padding: 0 var(--space-2); }
+.live { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--text-xs); white-space: nowrap; }
+.live i { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+.live.stale i { background: var(--danger); }
+
+/* ---- layout (follows the sketch: 4 stacked tiles | network | storage | sys report) */
+.grid { display: grid; grid-template-columns: minmax(230px, 0.9fr) 1.25fr 1.25fr 1fr; gap: var(--space-4); align-items: stretch; }
+.stack { display: grid; gap: var(--space-4); grid-auto-rows: 1fr; }
+@media (max-width: 1180px) { .grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px)  { .grid { grid-template-columns: 1fr; } .top { grid-template-columns: 1fr; } .note { padding: var(--space-3) var(--space-4); align-items: flex-start; } .note .msg { white-space: normal; } }
+
+.card {
+  background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  padding: var(--space-5); min-width: 0; display: flex; flex-direction: column;
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+.card:hover { border-color: var(--border-strong); }
+.head { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-3); }
+.eyebrow { font-size: var(--text-xs); color: var(--accent-text); letter-spacing: var(--tracking-wide); }
+.eyebrow sup { color: var(--highlight); font-size: 0.75em; margin-right: 2px; }
+.head .meta { margin-left: auto; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+/* ---- small tiles */
+.tile { padding: var(--space-4) var(--space-5); justify-content: space-between; gap: var(--space-3); }
+.tile .head { margin-bottom: 0; }
+.big { display: flex; align-items: baseline; gap: var(--space-2); }
+.val { font-size: var(--text-2xl); font-weight: var(--weight-medium); color: var(--text-strong); line-height: 1; letter-spacing: var(--tracking-tight); }
+.val small { font-size: 0.5em; color: var(--text-muted); font-weight: var(--weight-regular); margin-left: 2px; }
+.sub { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ---- terminal block bar: filled cells + hollow cells */
+.cells { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; height: 12px; }
+.cells span { border: 1px solid var(--border-default); border-radius: 1px; }
+.cells span.on { border-color: transparent; }
+.cells.sm { height: 8px; }
+.cells span.cap { border-style: dashed; border-color: var(--border-default); background: none !important; }
+
+/* ---- traces */
+.trace { position: relative; margin-top: var(--space-2); }
+.trace svg { display: block; width: 100%; overflow: visible; }
+.trace .grid-l { stroke: var(--border-subtle); stroke-dasharray: 2 4; }
+.trace .tick { font-family: var(--font-mono); font-size: 10px; fill: var(--text-muted); }
+.trace .line { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.trace .cross { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 2 3; }
+.trace .tag { font-family: var(--font-mono); font-size: 10px; }
+.legend { display: flex; gap: var(--space-4); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-2); }
+.legend i { display: inline-block; width: 10px; height: 2px; vertical-align: middle; margin-right: 6px; }
+.tip {
+  position: fixed; z-index: var(--z-tooltip); pointer-events: none; display: none;
+  background: var(--bg-overlay); color: var(--text-primary); border: 1px solid var(--border-strong); border-radius: var(--radius-xs);
+  padding: 6px 8px; font-family: var(--font-mono); font-size: 11px; line-height: 1.6; white-space: nowrap; box-shadow: var(--shadow-md);
+}
+.tip .t { color: var(--text-muted); }
+
+/* ---- rates & tree */
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.pair .lbl { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.pair .val { font-size: var(--text-xl); margin-top: 2px; }
+.tree { margin: var(--space-4) 0 0; padding: 0; list-style: none; font-size: var(--text-xs); line-height: 2; }
+.tree li { display: grid; grid-template-columns: 1.4em 7.5em 1fr; color: var(--text-secondary); }
+.tree li::before { content: "├"; color: var(--text-disabled); }
+.tree li:last-child::before { content: "└"; }
+.tree .k { color: var(--text-muted); }
+.tree .v { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ok { color: var(--success); } .warn { color: var(--warning); } .crit { color: var(--danger); } .dim { color: var(--text-muted); }
+.spacer { flex: 1; min-height: var(--space-3); }
+.prompt { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.prompt b { color: var(--accent-text); font-weight: var(--weight-regular); }
+
+/* ---- tabs (lh-tabs: mono, lowercase, lavender underline) */
+.tabs { display: flex; gap: var(--space-5); margin: calc(-1 * var(--space-2)) 0 var(--space-5); border-bottom: 1px solid var(--border-subtle); }
+.tab {
+  background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: var(--space-2) 0;
+  font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.tab:hover { color: var(--text-primary); }
+.tab[aria-selected="true"] { color: var(--text-strong); border-bottom-color: var(--secondary); }
+.tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.tab .badge { font-size: var(--text-2xs); color: var(--warning); margin-left: 4px; }
+.note { cursor: pointer; }
+[hidden] { display: none !important; }
+
+/* ---- report */
+.rgrid { display: grid; grid-template-columns: 1.5fr 1fr; gap: var(--space-4); align-items: start; }
+@media (max-width: 900px) { .rgrid { grid-template-columns: 1fr; } }
+.headline { font-family: var(--font-mono); font-size: var(--text-lg); line-height: 1.7; color: var(--text-strong); margin: 0; padding: 0; list-style: none; }
+.range { display: flex; gap: var(--space-1); margin-left: auto; }
+.range button { font-family: var(--font-mono); font-size: var(--text-xs); background: none; color: var(--text-muted); border: 1px solid transparent; border-radius: var(--radius-sm); padding: 2px 8px; cursor: pointer; }
+.range button[aria-pressed="true"] { color: var(--text-strong); border-color: var(--border-strong); }
+.log { font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.9; margin: 0; padding: 0; list-style: none; }
+.log li { display: grid; grid-template-columns: 9.5em 1.4em 1fr; gap: var(--space-2); color: var(--text-secondary); }
+.log .when { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#rErrors li { grid-template-columns: 12em 1fr; }
+.log .what { min-width: 0; overflow-wrap: anywhere; }
+.log .span { color: var(--text-muted); }
+.ask { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-4); }
+
+/* ---- claude card */
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; margin-left: var(--space-3); }
+.btn.primary:hover { background: var(--accent-hover); color: var(--on-accent); }
+.mono-xs { font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.7; }
+.ai-past { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: calc(-1 * var(--space-1)) 0 var(--space-4); }
+.ai-past:empty { display: none; }
+.ai-past button {
+  font-family: var(--font-mono); font-size: var(--text-2xs); padding: 2px 8px; border-radius: var(--radius-xs); cursor: pointer;
+  background: none; color: var(--text-muted); border: 1px solid var(--border-subtle);
+}
+.ai-past button[aria-pressed="true"] { color: var(--text-strong); border-color: var(--border-strong); }
+.ai-past button i { font-style: normal; margin-right: 4px; }
+.ai-head { font-family: var(--font-mono); font-size: var(--text-lg); color: var(--text-strong); margin: 0 0 var(--space-1); line-height: 1.4; }
+.ai-sum { color: var(--text-secondary); line-height: var(--leading-relaxed); margin: var(--space-3) 0 var(--space-5); max-width: var(--measure); }
+.finding { border-top: 1px solid var(--border-subtle); padding: var(--space-3) 0; }
+.finding .t { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-strong); }
+.finding dl { display: grid; grid-template-columns: 5.5em 1fr; gap: 2px var(--space-3); margin: var(--space-2) 0 0; font-size: var(--text-xs); }
+.finding dt { font-family: var(--font-mono); color: var(--text-muted); }
+.finding dd { margin: 0; color: var(--text-secondary); min-width: 0; overflow-wrap: anywhere; }
+.code { display: block; font-family: var(--font-mono); font-size: var(--text-xs); background: var(--bg-sunken); border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); margin: var(--space-1) 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-primary); }
+code { font-family: var(--font-mono); font-size: 0.92em; color: var(--accent-text); }
+.steps { margin: var(--space-2) 0 0; padding: 0; list-style: none; font-size: var(--text-xs); }
+.steps li { display: grid; grid-template-columns: 1.4em 1fr; color: var(--text-secondary); line-height: 1.8; }
+.steps li::before { content: "→"; color: var(--text-muted); font-family: var(--font-mono); }
+.ai-live { font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.8; margin-top: var(--space-4); padding: var(--space-3) var(--space-4);
+           background: var(--bg-sunken); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.ai-live .st { color: var(--text-primary); }
+.ai-live .cmd { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-live .cmd::before { content: "$ "; color: var(--text-disabled); }
+.ai-live .stream { color: var(--text-secondary); white-space: pre-wrap; margin-top: var(--space-2); font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-relaxed); }
+.cursor { display: inline-block; width: .55em; height: 1em; vertical-align: -2px; background: var(--accent); margin-left: 2px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ---- claude spark: sits beside the label; walks the lane while Claude works */
+.spark { display: inline-block; width: 18px; height: 21px; color: var(--accent); vertical-align: -5px; margin-right: 6px; overflow: visible;
+         transition: opacity var(--duration-base) var(--ease-standard); }
+.spark .rays { transform-box: view-box; transform-origin: 12px 11px; }
+.spark .foot { opacity: 0; transform-box: view-box; }
+.spark.away { opacity: .2; }
+.lane { position: relative; height: 28px; margin: calc(-1 * var(--space-1)) 0 var(--space-3); border-bottom: 1px dashed var(--border-default); }
+.lane .walker { position: absolute; inset: 0 96px 0 0; animation: walk 9s var(--ease-standard) infinite alternate; pointer-events: none; }
+.lane .spark { position: absolute; left: 0; bottom: 0; margin: 0; width: 22px; height: 26px; animation: waddle .36s ease-in-out infinite alternate; }
+.lane .spark .rays { animation: spin 4s linear infinite; }
+.lane .spark .foot { opacity: 1; animation: step .36s ease-in-out infinite alternate; }
+.lane .spark .foot.r { animation-delay: -.36s; }
+.lane .say { position: absolute; right: 0; bottom: 6px; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-muted); }
+@keyframes walk   { from { transform: translateX(0); } to { transform: translateX(calc(100% - 22px)); } }
+@keyframes waddle { from { transform: translateY(0) rotate(-7deg); } to { transform: translateY(-2px) rotate(7deg); } }
+@keyframes step   { from { transform: translateY(0); } to { transform: translateY(-2px); } }
+@keyframes spin   { to { transform: rotate(360deg); } }
+.tab-spark { width: 12px; height: 14px; margin: 0 0 0 6px; vertical-align: -2px; }
+.tab-spark .rays { animation: spin 2.4s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .lane .walker, .lane .spark, .lane .spark .rays, .lane .spark .foot, .tab-spark .rays, .cursor { animation: none; }
+  .lane .walker { transform: translateX(50%); }
+}
+.ai-chat { margin-top: var(--space-6); border-top: 1px solid var(--border-default); padding-top: var(--space-4); }
+.msgs { display: grid; gap: var(--space-4); margin-bottom: var(--space-4); }
+.msg .who { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 2px; }
+.msg.user .who { color: var(--accent-text); }
+.msg .body { color: var(--text-primary); line-height: var(--leading-relaxed); overflow-wrap: anywhere; }
+.msg .body p { margin: 0 0 var(--space-2); }
+.msg .body ul { margin: 0 0 var(--space-2); padding-left: 1.2em; }
+.msg details { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1); }
+.msg details summary { cursor: pointer; }
+.ask-row { display: flex; align-items: flex-end; gap: var(--space-2); background: var(--bg-sunken); border: 1px solid var(--border-default);
+           border-radius: var(--radius-sm); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+           transition: border-color var(--duration-fast) var(--ease-standard); }
+.ask-row:focus-within { border-color: var(--border-focus); }
+.prompt-mark { font-family: var(--font-mono); color: var(--accent-text); line-height: 32px; }
+.ask-row textarea { flex: 1; resize: none; border: 0; outline: 0; background: transparent; color: var(--text-primary);
+                    font: inherit; font-size: var(--text-sm); line-height: 1.5; padding: 6px 0; max-height: 160px; }
+.ask-row textarea::placeholder { color: var(--text-muted); }
+@media (max-width: 640px) { #aiMeta { display: none; } .btn.primary { margin-left: auto; } }
+.ask b { color: var(--highlight); font-weight: var(--weight-regular); }
+
+/* ---- footer */
+.foot { max-width: var(--container-2xl); margin: 0 auto; padding: 0 var(--gutter) var(--space-8); display: flex; gap: var(--space-2);
+        font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-disabled); }
+.foot a { color: var(--text-muted); text-decoration: none; }
+.foot a:hover { color: var(--text-link); }
+.foot .sep { color: var(--text-disabled); }
+
+/* ---- space hogs */
+.btn {
+  font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--tracking-wide);
+  height: var(--control-sm); padding: 0 var(--space-3); border-radius: var(--radius-sm); cursor: pointer;
+  background: transparent; color: var(--text-secondary); border: 1px solid var(--border-strong);
+  transition: color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
+}
+.btn:hover { color: var(--text-strong); border-color: var(--halo); }
+.btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.btn:disabled { opacity: .4; cursor: default; }
+.hogs { margin-top: var(--space-3); font-family: var(--font-mono); font-size: var(--text-xs); }
+.hogs .crumb { color: var(--text-muted); margin-bottom: var(--space-2); word-break: break-all; }
+.hogs .crumb a { color: var(--text-link); cursor: pointer; }
+.hog { display: grid; grid-template-columns: minmax(0, 1fr) 4.5em 64px; gap: var(--space-2); align-items: center; padding: 3px 4px; margin: 0 -4px; border-radius: var(--radius-xs); cursor: pointer; }
+.hog:hover { background: var(--bg-hover); }
+.hog .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+.hog .s { text-align: right; color: var(--text-primary); }
+.hog .b { height: 4px; background: var(--bg-raised); border-radius: 1px; overflow: hidden; }
+.hog .b i { display: block; height: 100%; background: var(--accent); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <div class="id">
+      <h1 id="host">—</h1>
+      <p id="sys">linux · sysdash</p>
+    </div>
+    <div class="note" role="status" aria-live="polite">
+      <span class="k">health ›</span>
+      <span class="msg" id="note"><span class="dim">reading sensors…</span></span>
+      <span class="live" id="live"><i></i><span id="clock">—</span></span>
+    </div>
+  </header>
+  <nav class="tabs" role="tablist" aria-label="views">
+    <button class="tab" role="tab" id="tabOverview" aria-selected="true" aria-controls="viewOverview">overview</button>
+    <button class="tab" role="tab" id="tabReport" aria-selected="false" aria-controls="viewReport">report<span class="badge" id="reportBadge"></span><span data-spark class="tab-spark-slot" id="tabSpark" hidden title="Claude is working"></span></button>
+  </nav>
+
+  <main class="grid" id="viewOverview" role="tabpanel">
+    <div class="stack">
+      <section class="card tile">
+        <div class="head"><span class="eyebrow"><sup>1</sup>cpu</span><span class="meta" id="cpuMeta"></span></div>
+        <div class="big"><span class="val" id="cpuVal">–</span></div>
+        <div class="cells" id="cpuCells"></div>
+      </section>
+      <section class="card tile">
+        <div class="head"><span class="eyebrow"><sup>2</sup>memory</span><span class="meta" id="memMeta"></span></div>
+        <div class="big"><span class="val" id="memVal">–</span></div>
+        <div class="cells" id="memCells"></div>
+      </section>
+      <section class="card tile">
+        <div class="head"><span class="eyebrow"><sup>3</sup>battery</span><span class="meta" id="batMeta"></span></div>
+        <div class="big"><span class="val" id="batVal">–</span><span class="sub" id="batHealth" style="margin-left:auto"></span></div>
+        <div class="cells" id="batCells"></div>
+      </section>
+      <section class="card tile">
+        <div class="head"><span class="eyebrow"><sup>4</sup>temp</span><span class="meta" id="tempMeta"></span></div>
+        <div class="big"><span class="val" id="tempVal">–</span></div>
+        <div class="cells" id="tempCells"></div>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="head"><span class="eyebrow"><sup>5</sup>network</span><span class="meta" id="netMeta"></span></div>
+      <div class="pair">
+        <div><div class="lbl">↓ down</div><div class="val" id="rx">–</div></div>
+        <div><div class="lbl">↑ up</div><div class="val" id="tx">–</div></div>
+      </div>
+      <div class="trace" id="netTrace" data-h="150"></div>
+      <div class="legend"><span><i style="background:var(--data-1)"></i>down</span><span><i style="background:var(--data-2)"></i>up</span><span style="margin-left:auto">last hour</span></div>
+      <ul class="tree" id="netTree"></ul>
+    </section>
+
+    <section class="card">
+      <div class="head"><span class="eyebrow"><sup>6</sup>storage</span><span class="meta" id="diskMeta"></span></div>
+      <div class="big"><span class="val" id="diskVal">–</span></div>
+      <div class="sub" id="diskSub" style="margin:4px 0 10px"></div>
+      <div class="cells" id="diskCells"></div>
+      <div class="trace" id="diskTrace" data-h="110"></div>
+      <div class="legend"><span><i style="background:var(--data-1)"></i>read</span><span><i style="background:var(--data-2)"></i>write</span><span style="margin-left:auto">last hour</span></div>
+      <ul class="tree" id="diskTree"></ul>
+    </section>
+
+    <section class="card">
+      <div class="head"><span class="eyebrow"><sup>7</sup>sys report</span></div>
+      <div class="prompt"><b>~</b> $ sysdash --report</div>
+      <ul class="tree" id="report" style="margin-top:var(--space-2)"></ul>
+      <div class="spacer"></div>
+      <div style="display:flex;align-items:center;gap:var(--space-3);margin-top:var(--space-4)">
+        <span class="prompt" style="flex:1"><b>~</b> $ du</span>
+        <button class="btn" id="scanBtn">scan ~</button>
+      </div>
+      <div class="hogs" id="hogs"><div class="dim">find what's filling the disk</div></div>
+    </section>
+  </main>
+
+  <section id="viewReport" role="tabpanel" hidden>
+    <div class="rgrid">
+      <div class="card ai">
+        <div class="head"><span class="eyebrow"><span data-spark id="aiSpark"></span><sup>1</sup>claude</span>
+          <span class="meta" id="aiMeta">sonnet · read-only</span>
+          <button class="btn primary" id="aiScan">scan with claude</button></div>
+        <div class="lane" id="aiLane" hidden aria-hidden="true"><div class="walker"><span data-spark></span></div><span class="say" id="aiSay"></span></div>
+        <div class="ai-past" id="aiPast"></div>
+        <div id="aiBody"><div class="dim mono-xs">press scan and Claude checks the system read-only, then writes a report here. it only runs when you ask.</div></div>
+        <div class="ai-live" id="aiLive" hidden></div>
+        <div class="ai-chat" id="aiChat" hidden>
+          <div class="msgs" id="aiMsgs"></div>
+          <div id="aiPending" style="margin-bottom:var(--space-4)"></div>
+          <form class="ask-row" id="aiForm" autocomplete="off">
+            <span class="prompt-mark">›</span>
+            <textarea id="aiInput" rows="1" placeholder="ask about this report…" aria-label="message to Claude"></textarea>
+            <button class="btn" id="aiSend" type="submit">send</button>
+          </form>
+        </div>
+      </div>
+      <div style="display:grid;gap:var(--space-4);align-content:start">
+        <div class="card">
+          <div class="head"><span class="eyebrow"><sup>2</sup>what happened</span>
+            <span class="range" role="group" aria-label="time range">
+              <button data-h="24" aria-pressed="true">24h</button><button data-h="168" aria-pressed="false">7d</button><button data-h="720" aria-pressed="false">30d</button>
+            </span></div>
+          <ul class="headline" id="rHead"></ul>
+          <div class="sub" id="rMeta" style="margin-top:var(--space-2)"></div>
+          <ul class="log" id="rEvents" style="margin-top:var(--space-4)"></ul>
+        </div>
+        <div class="card"><div class="head"><span class="eyebrow"><sup>3</sup>peaks</span></div><ul class="tree" id="rPeaks" style="margin-top:0"></ul></div>
+        <div class="card"><div class="head"><span class="eyebrow"><sup>4</sup>crashes &amp; kills</span></div><ul class="log" id="rCrash"></ul></div>
+        <div class="card"><div class="head"><span class="eyebrow"><sup>5</sup>journal errors</span><span class="meta" id="rErrTotal"></span></div><ul class="log" id="rErrors"></ul></div>
+      </div>
+    </div>
+  </section>
+</div>
+<footer class="foot"><span>sysdash <span id="ver"></span></span><span class="sep">·</span><a href="https://github.com/syedmehedihussain/sysdash" target="_blank" rel="noopener">github</a></footer>
+<div class="tip" id="tip"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const TOKEN = "__SYSDASH_TOKEN__";  // filled in by the server; POSTs without it are refused
+const post = (url, body) => fetch(url, {method: "POST", headers: {"X-Sysdash-Token": TOKEN, "Content-Type": "application/json"},
+                                        body: body ? JSON.stringify(body) : undefined});
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function bytes(n, d = 1) {
+  if (n == null) return "–";
+  const u = ["B","K","M","G","T"]; let i = 0;
+  while (Math.abs(n) >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+  return (i === 0 ? Math.round(n) : n.toFixed(n >= 100 ? 0 : d)) + (i ? u[i] + "B" : " B");
+}
+const rate = n => bytes(n) + "/s";
+function dur(s) {
+  if (s == null) return "–";
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+}
+const clock = t => new Date(t * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false});
+
+/* ---- block bar. mode "heat": cells shade teal→plum→clay along the bar (btop style) */
+function hex2rgb(h) { h = h.replace("#", ""); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); }
+function mix(a, b, t) { const A = hex2rgb(a), B = hex2rgb(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(",")})`; }
+function heat(t) {
+  const [c0, c1, c2] = ["--teal-400", "--plum-300", "--clay-400"].map(css);
+  return t < .5 ? mix(c0, c1, t * 2) : mix(c1, c2, (t - .5) * 2);
+}
+function cells(el, pct, {mode = "heat", color = null, n = null, cap = null} = {}) {
+  n = n || Math.max(12, Math.min(40, Math.round(el.clientWidth / 9)));
+  const on = Math.round(Math.max(0, Math.min(100, pct || 0)) / 100 * n);
+  if (el.children.length !== n) el.innerHTML = "<span></span>".repeat(n);
+  [...el.children].forEach((c, i) => {
+    const lit = i < on;
+    const capped = cap != null && i >= Math.round(cap / 100 * n);  // above the charge limit: dashed
+    c.className = lit && !capped ? "on" : capped ? "cap" : "";
+    c.style.background = lit && !capped ? (color || (mode === "heat" ? heat(i / (n - 1)) : css("--accent"))) : "";
+  });
+  el.setAttribute("role", "meter"); el.setAttribute("aria-valuenow", Math.round(pct || 0));
+  el.setAttribute("aria-valuemin", 0); el.setAttribute("aria-valuemax", 100);
+}
+
+/* ---- trace chart: thin lines on a dashed grid, crosshair + tooltip, live end markers */
+const tip = $("tip");
+function showTip(e, html) {
+  tip.innerHTML = html; tip.style.display = "block";
+  const r = tip.getBoundingClientRect();
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = e.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = e.clientY - r.height - 14;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+function trace(el, data, series, fmt) {
+  const W = el.clientWidth || 300, H = +el.dataset.h, padL = 44, padR = 4, padT = 8, padB = 16;
+  const w = W - padL - padR, h = H - padT - padB;
+  if (data.length < 2) { el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="height:${H}px"><text class="tick" x="${padL}" y="${H / 2}">collecting…</text></svg>`; return; }
+  const t0 = data[0].t, span = Math.max(1, data[data.length - 1].t - t0);
+  const top = Math.max(1024, ...data.flatMap(d => series.map(s => d[s.key] || 0))) * 1.15;
+  const x = t => padL + (t - t0) / span * w, y = v => padT + h - v / top * h;
+  let s = `<svg viewBox="0 0 ${W} ${H}" style="height:${H}px" role="img" aria-label="${series.map(s => s.label).join(" and ")}, last hour">`;
+  for (const f of [0, .25, .5, .75, 1]) {
+    const yy = padT + h - f * h;
+    s += `<line class="grid-l" x1="${padL}" x2="${W - padR}" y1="${yy}" y2="${yy}"/>`;
+    if (f % .5 === 0) s += `<text class="tick" x="${padL - 6}" y="${yy + 3}" text-anchor="end">${fmt(top * f)}</text>`;
+  }
+  s += `<text class="tick" x="${padL}" y="${H - 2}">-${span < 90 ? Math.round(span) + "s" : Math.round(span / 60) + "m"}</text>`;
+  s += `<text class="tick" x="${W - padR}" y="${H - 2}" text-anchor="end">now</text>`;
+  for (const se of series) {
+    const c = css(se.color);
+    s += `<path class="line" stroke="${c}" d="M${data.map(d => `${x(d.t).toFixed(1)},${y(d[se.key] || 0).toFixed(1)}`).join("L")}"/>`;
+    const L = data[data.length - 1];
+    s += `<rect x="${x(L.t) - 3}" y="${y(L[se.key] || 0) - 3}" width="6" height="6" fill="var(--bg-surface)" stroke="${c}" stroke-width="1.5"/>`;
+  }
+  s += `<line class="cross" y1="${padT}" y2="${padT + h}" style="display:none"/><rect x="${padL}" y="0" width="${w}" height="${H}" fill="transparent"/></svg>`;
+  el.innerHTML = s;
+  const svg = el.firstChild, cross = svg.querySelector(".cross");
+  svg.onmousemove = e => {
+    const r = svg.getBoundingClientRect();
+    const tx = t0 + ((e.clientX - r.left) / r.width * W - padL) / w * span;
+    let b = data[0]; for (const d of data) if (Math.abs(d.t - tx) < Math.abs(b.t - tx)) b = d;
+    cross.setAttribute("x1", x(b.t)); cross.setAttribute("x2", x(b.t)); cross.style.display = "";
+    showTip(e, `<div class="t">${clock(b.t)}</div>` + series.map(se => `<div><span style="color:${css(se.color)}">■</span> ${se.label} ${fmt(b[se.key] || 0)}</div>`).join(""));
+  };
+  svg.onmouseleave = () => { cross.style.display = "none"; tip.style.display = "none"; };
+}
+
+const tree = rows => rows.map(([k, v]) => `<li><span class="k">${k}</span><span class="v">${v}</span></li>`).join("");
+
+/* ---- render */
+let history = [], last = null, lastOk = 0;
+
+function forecastText(f) {
+  if (!f || f.status === "learning") return `<span class="dim">learning · ${f ? f.days : 0} of 1 day</span>`;
+  if (f.status === "stable") return `<span class="ok">stable</span>`;
+  const d = f.days_left, when = d > 730 ? "years" : d > 60 ? `~${Math.round(d / 30)} months` : `~${Math.round(d)} days`;
+  return `<span class="${d < 30 ? "crit" : d < 90 ? "warn" : ""}">full in ${when}</span> <span class="dim">+${bytes(f.per_day, 1)}/day</span>`;
+}
+
+function render(s) {
+  last = s;
+  const h = s.host || {}, m = s.mem || {}, bat = s.battery, sens = s.sensors || {};
+  $("host").textContent = h.name || "—";
+  $("sys").textContent = `linux ${h.kernel || ""} · sysdash`;
+  document.title = `sysdash · ${h.name || ""}`;
+
+  // health note: one line. Nominal, or every alert in its status color.
+  const al = s.alerts || [];
+  $("reportBadge").textContent = al.length ? "●" : "";
+  setClaudeBusy(s.claude_busy);
+  if (s.version) $("ver").textContent = "v" + s.version;
+  $("note").innerHTML = al.length
+    ? al.map(a => `<span class="${a.level === "critical" ? "crit" : "warn"}">${a.level === "critical" ? "✕" : "!"} ${esc(a.text.toLowerCase())}</span>`).join('<span class="sep">·</span>')
+    : `<span class="ok">✓ all systems nominal</span>`;
+
+  // tiles
+  $("cpuVal").innerHTML = `${Math.round(s.cpu?.pct ?? 0)}<small>%</small>`;
+  $("cpuMeta").textContent = s.cpu?.mhz ? `${(s.cpu.mhz / 1000).toFixed(1)} GHz` : "";
+  cells($("cpuCells"), s.cpu?.pct);
+
+  $("memVal").innerHTML = `${Math.round(m.pct ?? 0)}<small>%</small>`;
+  $("memMeta").textContent = `${bytes(m.used)} / ${bytes(m.total, 0)}`;
+  cells($("memCells"), m.pct);
+
+  if (bat) {
+    $("batVal").innerHTML = `${bat.pct}<small>%</small>`;
+    const st = bat.status === "Discharging" ? `${dur(bat.remaining_s)} left` : bat.status === "Charging" ? `charging · ${bat.watts}W` : "plugged in";
+    const lim = bat.stop_threshold && bat.stop_threshold < 100;
+    $("batMeta").innerHTML = lim ? esc(st) : `${esc(st)} · <span class="warn" title="charges to 100% — an 80% limit slows battery wear">limit off</span>`;
+    $("batHealth").textContent = bat.health ? `health ${Math.round(bat.health)}%` : "";
+    cells($("batCells"), bat.pct, {color: css(bat.pct <= 15 ? "--danger" : bat.pct <= 30 ? "--warning" : "--success"), cap: lim ? bat.stop_threshold : null});
+    $("batCells").title = lim ? `charging stops at ${bat.stop_threshold}% (dashed cells)` : "";
+  } else { $("batVal").textContent = "n/a"; }
+
+  $("tempVal").innerHTML = sens.cpu != null ? `${Math.round(sens.cpu)}<small>°C</small>` : "–";
+  $("tempMeta").textContent = sens.fan_rpm != null ? `fan ${sens.fan_rpm} rpm` : "";
+  cells($("tempCells"), sens.cpu != null ? (sens.cpu - 30) / 70 * 100 : 0); // 30 °C → empty, 100 °C → full
+
+  // network
+  $("rx").textContent = rate(s.net_rx);
+  $("tx").textContent = rate(s.net_tx);
+  const wf = s.wifi || {};
+  $("netMeta").textContent = wf.ssid ? `${wf.ssid} · ${wf.dbm} dBm` : "";
+  const nu = s.net_usage || {}, td = nu.today?.physical || [0, 0], mo = nu.month?.physical || [0, 0];
+  const lan = (s.addrs || []).find(a => a.state === "UP" && a.ipv4.length);
+  const ts = (s.addrs || []).find(a => a.iface.startsWith("tailscale") && a.ipv4.length);
+  $("netTree").innerHTML = tree([
+    ["today", `${bytes(td[0] + td[1])} <span class="dim">↓${bytes(td[0])} ↑${bytes(td[1])}</span>`],
+    ["this month", `${bytes(mo[0] + mo[1])} <span class="dim">↓${bytes(mo[0])} ↑${bytes(mo[1])}</span>`],
+    ["ip", lan ? `${esc(lan.ipv4[0])} <span class="dim">${esc(lan.iface)}</span>` : `<span class="crit">offline</span>`],
+    ...(ts ? [["tailscale", `${esc(ts.ipv4[0])}`]] : []),
+  ]);
+
+  // storage
+  const root = (s.disks || []).find(d => d.mount === "/") || (s.disks || [])[0];
+  if (root) {
+    $("diskVal").innerHTML = `${bytes(root.free, 0).replace("GB", "")}<small>GB free</small>`;
+    $("diskSub").textContent = `${bytes(root.used, 0)} used of ${bytes(root.total, 0)} · ${Math.round(root.pct)}%`;
+    $("diskMeta").textContent = `/ ${root.fs}`;
+    cells($("diskCells"), root.pct);
+  }
+  const others = (s.disks || []).filter(d => d !== root);
+  $("diskTree").innerHTML = tree([
+    ["i/o", `${rate(s.disk_io?.read)} <span class="dim">/</span> ${rate(s.disk_io?.write)}`],
+    ...others.map(d => [esc(d.mount), `${bytes(d.free, 0)} free <span class="dim">of ${bytes(d.total, 0)}</span>`]),
+    ["ssd temp", sens.nvme != null ? `${sens.nvme} °C` : "–"],
+    ["forecast", forecastText(s.forecast)],
+  ]);
+
+  // sys report
+  const fu = s.failed_units || [], up = s.updates || {}, dk = s.docker || {};
+  const top3 = (s.top_cpu || []).slice(0, 3).map(p => `${esc(p.name)} <span class="dim">${Math.round(p.cpu)}%</span>`).join(" · ");
+  $("report").innerHTML = tree([
+    ["uptime", dur(h.uptime_s)],
+    ["load", (h.load || []).map(v => v.toFixed(2)).join(" ")],
+    ["services", fu.length ? `<span class="crit">${fu.length} failed</span> <span class="dim">${esc(fu[0].unit)}</span>` : `<span class="ok">all running</span>`],
+    ...(up.error === "unsupported" ? [] : [["updates", up.count == null ? `<span class="dim">${up.error ? "check failed" : "checking…"}</span>` : up.count ? `<span class="warn">${up.count} available</span>` : `<span class="ok">up to date</span>`]]),
+    ["docker", dk.ok ? `${dk.containers.length} running` : `<span class="dim">no access</span>`],
+    ["procs", `${h.procs ?? "–"}`],
+    ["top", top3 || "–"],
+  ]);
+}
+
+function drawTraces() {
+  const f = v => bytes(v, 0).replace(" ", "");
+  trace($("netTrace"), history, [{key: "rx", label: "down", color: "--data-1"}, {key: "tx", label: "up", color: "--data-2"}], f);
+  trace($("diskTrace"), history, [{key: "dr", label: "read", color: "--data-1"}, {key: "dw", label: "write", color: "--data-2"}], f);
+}
+
+/* ---- space scan */
+let scanPath = null, scanTimer = null;
+async function startScan(path) {
+  $("scanBtn").disabled = true;
+  $("hogs").innerHTML = `<div class="dim">scanning ${esc(path ? path.replace(/^\/home\/[^/]+/, "~") : "~")}…</div>`;
+  const j = await (await post("/api/scan" + (path ? "?path=" + encodeURIComponent(path) : ""))).json();
+  if (!j.ok) { $("hogs").innerHTML = `<div class="crit">${esc(j.error)}</div>`; $("scanBtn").disabled = false; return; }
+  clearInterval(scanTimer); scanTimer = setInterval(pollScan, 1000);
+}
+async function pollScan() {
+  const s = await (await fetch("/api/scan")).json();
+  if (s.running) return;
+  clearInterval(scanTimer); $("scanBtn").disabled = false; $("scanBtn").textContent = "rescan";
+  scanPath = s.path; renderScan(s);
+}
+function renderScan(s) {
+  if (!s.path) return;
+  const home = s.path.match(/^\/home\/[^/]+/)?.[0] || s.path;
+  let acc = home;
+  const crumb = `<a data-p="${esc(home)}">~</a>` + s.path.slice(home.length).split("/").filter(Boolean)
+    .map(p => { acc += "/" + p; return `/<a data-p="${esc(acc)}">${esc(p)}</a>`; }).join("") +
+    (s.total != null ? ` <span>· ${bytes(s.total)}</span>` : "");
+  const top = s.entries.slice(0, 6), max = Math.max(1, ...top.map(e => e.bytes));
+  $("hogs").innerHTML = `<div class="crumb">${crumb}</div>` + (top.length ? top.map(e =>
+    `<div class="hog" data-p="${esc(e.path)}" title="open ${esc(e.name)}"><span class="n">${esc(e.name)}/</span><span class="s num">${bytes(e.bytes, 1)}</span><span class="b"><i style="width:${(100 * e.bytes / max).toFixed(0)}%"></i></span></div>`).join("")
+    : `<div class="dim">${esc(s.error || "no subfolders")}</div>`);
+  $("hogs").querySelectorAll("[data-p]").forEach(el => el.onclick = () => startScan(el.dataset.p));
+}
+$("scanBtn").onclick = () => startScan(scanPath);
+
+/* ---- polling */
+async function tick() {
+  try {
+    const s = await (await fetch("/api/stats", {cache: "no-store"})).json();
+    if (s.time) {
+      const pt = {t: Math.round(s.time), rx: Math.round(s.net_rx), tx: Math.round(s.net_tx), dr: Math.round(s.disk_io.read), dw: Math.round(s.disk_io.write)};
+      if (!history.length || history[history.length - 1].t < pt.t) history.push(pt);
+      while (history.length && history[0].t < pt.t - 3600) history.shift();
+      $("clock").textContent = clock(s.time);
+    }
+    render(s); drawTraces(); lastOk = Date.now();
+  } catch (e) { /* server restarting */ }
+  const stale = Date.now() - lastOk > 6000;
+  $("live").classList.toggle("stale", stale);
+  if (stale) $("clock").textContent = "offline";
+}
+(async () => {
+  try { history = await (await fetch("/api/history")).json(); } catch (e) {}
+  try { const s = await (await fetch("/api/scan")).json(); if (s.path && !s.running) { scanPath = s.path; renderScan(s); } } catch (e) {}
+  tick(); setInterval(tick, 2000);
+})();
+/* ---- report view */
+let reportHours = 24, reportTimer = null;
+const lvClass = l => l === "critical" ? "crit" : l === "warning" ? "warn" : l === "ok" ? "ok" : "dim";
+const lvIcon = l => l === "critical" ? "✕" : l === "warning" ? "!" : l === "ok" ? "✓" : "·";
+const when = t => t ? new Date(t * 1000).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false}) : "—";
+function mins(a, b) { const m = Math.round((b - a) / 60); return m < 1 ? "<1m" : m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`; }
+async function loadReport() {
+  let r;
+  try { r = await (await fetch(`/api/report?hours=${reportHours}`)).json(); } catch (e) { return; }
+  $("rHead").innerHTML = r.headline.map(h => `<li class="${lvClass(h.level)}">${lvIcon(h.level)} ${esc(h.text.toLowerCase())}</li>`).join("");
+  const p = r.peaks;
+  $("rMeta").textContent = p.minutes_logged ? `logged since ${when(p.first)} · ${p.minutes_logged} min of data` : "no history yet — sysdash logs one row per minute";
+  $("rEvents").innerHTML = r.events.length ? r.events.map(e =>
+    `<li><span class="when">${when(e.start)}</span><span class="${lvClass(e.level)}">${lvIcon(e.level)}</span><span class="what">${esc(e.text)}
+      <span class="span">${e.ongoing ? "· ongoing" : e.end && e.end > e.start ? "· " + mins(e.start, e.end) : ""}</span></span></li>`).join("")
+    : `<li><span class="when">—</span><span class="ok">✓</span><span class="what">no alerts in this period</span></li>`;
+  $("rPeaks").innerHTML = p.minutes_logged ? tree([
+    ["cpu temp", `${Math.round(p.temp_max)} °C <span class="dim">${when(p.temp_at)}</span>`],
+    ["≥ 90 °C", `${p.hot_minutes} min <span class="dim">· throttled ${p.throttle_events}×</span>`],
+    ["cpu", `${Math.round(p.cpu_max)}% <span class="dim">${when(p.cpu_at)}</span>`],
+    ["memory", `${Math.round(p.mem_max)}% <span class="dim">${when(p.mem_at)}</span>`],
+    ["battery low", p.bat_min != null ? `${Math.round(p.bat_min)}%` : "–"],
+    ["data", `↓${bytes(p.rx)} ↑${bytes(p.tx)}`],
+  ]) : `<li><span class="k">—</span><span class="v dim">collecting</span></li>`;
+  const ck = [...r.crashes.map(c => ({t: c.time, x: `${esc(c.exe)} <span class="span">crashed · signal ${c.sig}</span>`})),
+              ...r.oom.map(o => ({t: o.time, x: `${esc(o.message)}`}))].sort((a, b) => b.t - a.t);
+  $("rCrash").innerHTML = ck.length ? ck.map(c => `<li><span class="when">${when(c.t)}</span><span class="crit">✕</span><span class="what">${c.x}</span></li>`).join("")
+    : `<li><span class="when">—</span><span class="ok">✓</span><span class="what">none</span></li>`;
+  $("rErrTotal").textContent = `${r.error_total} total`;
+  $("rErrors").innerHTML = r.errors.length ? r.errors.slice(0, 6).map(g =>
+    `<li><span class="when">${g.count}× ${esc(g.source)}</span><span class="what dim" title="${esc(g.message)}">${esc(g.message.slice(0, 110))}</span></li>`).join("")
+    : `<li><span class="when ok">✓ none</span></li>`;
+}
+/* ---- claude: scan button + chat. Claude only runs when you press scan or send a message. */
+const ai = {sel: null, rec: null, timer: null, lastJob: null};
+
+/* A Claude-style starburst: 12 tapered rays of uneven length, plus two feet that only show while walking. */
+function sparkSvg(extra = "") {
+  const len = [1, .72, .9, .64, .97, .7, .88, .62, 1, .74, .86, .66];
+  const rays = len.map((l, i) => {
+    const a = (i * 30 - 90 + (i % 2 ? 4 : 0)) * Math.PI / 180, r0 = 2.2, r1 = 9.6 * l;
+    return `<line x1="${(12 + r0 * Math.cos(a)).toFixed(2)}" y1="${(11 + r0 * Math.sin(a)).toFixed(2)}" x2="${(12 + r1 * Math.cos(a)).toFixed(2)}" y2="${(11 + r1 * Math.sin(a)).toFixed(2)}" stroke-width="${i % 2 ? 1.9 : 2.4}"/>`;
+  }).join("");
+  return `<svg class="spark ${extra}" viewBox="0 0 24 28" aria-hidden="true"><g class="rays" stroke="currentColor" stroke-linecap="round">${rays}</g>` +
+    `<rect class="foot l" x="8" y="23.5" width="3" height="3" rx="1" fill="currentColor"/><rect class="foot r" x="13" y="23.5" width="3" height="3" rx="1" fill="currentColor"/></svg>`;
+}
+document.querySelectorAll("[data-spark]").forEach(el => { el.outerHTML = sparkSvg(el.id === "tabSpark" ? "tab-spark" : "") .replace("<svg ", `<svg ${el.id ? `id="${el.id}" ` : ""}${el.hasAttribute("hidden") ? "hidden " : ""}`); });
+
+function setClaudeBusy(kind) {  // walk while Claude works; sit beside the label when idle
+  $("aiLane").hidden = !kind;
+  $("aiSpark").classList.toggle("away", !!kind);
+  $("aiSay").textContent = kind === "scan" ? "scanning…" : kind === "chat" ? "thinking…" : "";
+  const t = $("tabSpark"); if (t) t.toggleAttribute("hidden", !kind);
+}
+const sevClass = s => s === "critical" ? "crit" : s === "warning" || s === "minor" ? "warn" : s === "ok" ? "ok" : "dim";
+const sevIcon = s => s === "critical" ? "✕" : s === "warning" || s === "minor" ? "!" : s === "ok" ? "✓" : "·";
+const inl = s => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
+function md(text) {  // small, escaped markdown: ``` blocks, `code`, **bold**, lists, paragraphs
+  return String(text || "").split(/```[a-z]*\n?/).map((chunk, i) => i % 2
+    ? `<span class="code">${esc(chunk.replace(/\n$/, ""))}</span>`
+    : chunk.trim().split(/\n{2,}/).filter(Boolean).map(block => {
+        const lines = block.split("\n");
+        return lines.every(l => /^\s*([-*]|\d+\.)\s/.test(l))
+          ? `<ul>${lines.map(l => `<li>${inl(l.replace(/^\s*([-*]|\d+\.)\s/, ""))}</li>`).join("")}</ul>`
+          : `<p>${inl(block)}</p>`;
+      }).join("")).join("");
+}
+const fixHtml = f => !f ? `<span class="dim">nothing needed</span>` : f.includes("```") ? md(f) : inl(f);
+
+function renderAiReport(rec) {
+  if (!rec) return;
+  if (rec.status !== "done") {
+    $("aiBody").innerHTML = `<div class="crit mono-xs">✕ scan failed · ${esc(rec.error || "unknown error")}</div>`;
+    $("aiChat").hidden = true; return;
+  }
+  const r = rec.report;
+  $("aiBody").innerHTML = `<div class="sub">${when(rec.created)} · ran ${rec.tools.length} commands · ${esc(rec.model)}</div>
+    <h3 class="ai-head ${sevClass(r.severity)}">${sevIcon(r.severity)} ${esc(r.headline)}</h3>
+    <p class="ai-sum">${inl(r.summary)}</p>` +
+    r.findings.map(f => `<div class="finding"><div class="t"><span class="${sevClass(f.severity)}">${sevIcon(f.severity)}</span> ${esc(f.title)}</div>
+      <dl><dt>evidence</dt><dd>${inl(f.evidence)}</dd><dt>cause</dt><dd>${inl(f.cause)}</dd><dt>fix</dt><dd>${fixHtml(f.fix)}</dd></dl></div>`).join("") +
+    (r.next_steps.length ? `<div class="finding"><div class="t">next steps</div><ul class="steps">${r.next_steps.map(s => `<li><span>${inl(s)}</span></li>`).join("")}</ul></div>` : "");
+  $("aiChat").hidden = false;
+  $("aiMsgs").innerHTML = (rec.chat || []).map(m => m.role === "user"
+    ? `<div class="msg user"><div class="who">you ›</div><div class="body">${md(m.text)}</div></div>`
+    : `<div class="msg"><div class="who">claude ›</div><div class="body">${m.error ? `<span class="crit">✕ ${esc(m.error)}</span>` : md(m.text)}</div>` +
+      (m.tools && m.tools.length ? `<details><summary>ran ${m.tools.length} command${m.tools.length > 1 ? "s" : ""}</summary>${m.tools.map(t => `<div>$ ${esc(t)}</div>`).join("")}</details>` : "") + `</div>`).join("");
+}
+
+function liveHtml(job, verb) {
+  const s = Math.max(0, Math.round(Date.now() / 1000 - job.started));
+  return `<div class="st">claude is ${verb}<span class="cursor"></span> <span class="dim">${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}</span></div>` +
+    job.activity.slice(-6).map(c => `<div class="cmd">${esc(c)}</div>`).join("") +
+    (job.text ? `<div class="stream">${esc(job.text)}</div>` : "");
+}
+
+async function selectReport(id, force) {
+  if (!id || (id === ai.sel && ai.rec && !force)) return;
+  ai.sel = id;
+  try { ai.rec = await (await fetch(`/api/claude/report?id=${encodeURIComponent(id)}`)).json(); } catch (e) { return; }
+  renderAiReport(ai.rec);
+  document.querySelectorAll("#aiPast button").forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id));
+}
+
+async function aiPoll() {
+  clearTimeout(ai.timer);
+  let st;
+  try { st = await (await fetch("/api/claude", {cache: "no-store"})).json(); } catch (e) { ai.timer = setTimeout(aiPoll, 5000); return; }
+  const job = st.job;
+  setClaudeBusy(job && job.kind);
+  $("aiMeta").textContent = st.available ? `${st.model} · read-only` : "claude CLI not found";
+  $("aiScan").disabled = !!job || !st.available;
+  $("aiScan").textContent = job && job.kind === "scan" ? "scanning…" : "scan with claude";
+  $("aiPast").innerHTML = st.reports.map(r => `<button data-id="${r.id}" aria-pressed="${r.id === ai.sel}" title="${esc(r.headline || "")}">` +
+    `<i class="${sevClass(r.severity)}">${sevIcon(r.severity)}</i>${when(r.created)}</button>`).join("");
+  $("aiPast").querySelectorAll("button").forEach(b => b.onclick = () => selectReport(b.dataset.id));
+
+  if (ai.lastJob && !job) {  // a job just finished: open the new report, or refresh the chat
+    const done = ai.lastJob; ai.lastJob = null;
+    await selectReport(done.kind === "scan" ? done.id : ai.sel, true);
+  }
+  if (job) ai.lastJob = job;
+
+  if (job && job.kind === "scan") {
+    ai.sel = null; ai.rec = null;
+    $("aiBody").innerHTML = ""; $("aiChat").hidden = true;
+    $("aiLive").hidden = false; $("aiLive").innerHTML = liveHtml(job, "scanning the system");
+  } else {
+    $("aiLive").hidden = true;
+    if (!ai.sel && st.reports.length) await selectReport(st.reports[0].id);
+  }
+  const pending = job && job.kind === "chat" && job.id === ai.sel;
+  $("aiPending").innerHTML = pending ? `<div class="msg"><div class="who">claude ›</div><div class="ai-live" style="margin-top:0">${liveHtml(job, "looking into it")}</div></div>` : "";
+  $("aiInput").disabled = $("aiSend").disabled = !!job;
+  if (!$("viewReport").hidden) ai.timer = setTimeout(aiPoll, job ? 1000 : 15000);
+}
+
+$("aiScan").onclick = async () => {
+  $("aiScan").disabled = true;
+  const j = await (await post("/api/claude/scan")).json();
+  if (!j.ok) $("aiBody").innerHTML = `<div class="crit mono-xs">✕ ${esc(j.error)}</div>`;
+  aiPoll();
+};
+const aiInput = $("aiInput");
+const autosize = () => { aiInput.style.height = "auto"; aiInput.style.height = Math.min(160, aiInput.scrollHeight) + "px"; };
+aiInput.addEventListener("input", autosize);
+aiInput.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("aiForm").requestSubmit(); } });
+$("aiForm").onsubmit = async e => {
+  e.preventDefault();
+  const m = aiInput.value.trim();
+  if (!m || !ai.sel || aiInput.disabled) return;
+  aiInput.value = ""; autosize();
+  ai.rec.chat = [...(ai.rec.chat || []), {role: "user", text: m}];
+  renderAiReport(ai.rec);
+  const j = await (await post("/api/claude/chat", {id: ai.sel, message: m})).json();
+  if (!j.ok) $("aiPending").innerHTML = `<div class="crit mono-xs">✕ ${esc(j.error)}</div>`;
+  aiPoll();
+};
+
+function showView(v) {
+  const rep = v === "report";
+  $("viewOverview").hidden = rep; $("viewReport").hidden = !rep;
+  $("tabOverview").setAttribute("aria-selected", !rep); $("tabReport").setAttribute("aria-selected", rep);
+  clearInterval(reportTimer);
+  clearTimeout(ai.timer);
+  if (rep) { loadReport(); aiPoll(); reportTimer = setInterval(loadReport, 30000); }
+  else if (last) { render(last); drawTraces(); }
+  try { window.history.replaceState(null, "", rep ? "#report" : "#"); } catch (e) {}
+}
+$("tabOverview").onclick = () => showView("overview");
+$("tabReport").onclick = () => showView("report");
+document.querySelector(".note").onclick = () => showView("report");
+document.querySelectorAll(".range button").forEach(b => b.onclick = () => {
+  reportHours = +b.dataset.h;
+  document.querySelectorAll(".range button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  loadReport();
+});
+if (location.hash === "#report") showView("report");
+
+addEventListener("resize", () => { if (last) { render(last); drawTraces(); } });
+new MutationObserver(() => last && (render(last), drawTraces())).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme"]});
+</script>
+</body>
+</html>

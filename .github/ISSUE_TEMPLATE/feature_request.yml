@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest an idea or an improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: What were you trying to see or do?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: sysdash aims to stay glanceable. Where would this live (overview, report tab, CLI)?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered

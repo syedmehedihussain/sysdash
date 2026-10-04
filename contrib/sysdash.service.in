@@ -1,0 +1,12 @@
+[Unit]
+Description=sysdash - local system dashboard on http://localhost:@PORT@
+
+[Service]
+ExecStart=/usr/bin/env python3 @DIR@/sysdash.py
+Environment=SYSDASH_PORT=@PORT@
+Restart=on-failure
+RestartSec=5
+Nice=10
+
+[Install]
+WantedBy=default.target

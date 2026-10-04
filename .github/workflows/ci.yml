@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Compile
+        run: python -m py_compile sysdash.py demo.py
+
+      - name: CLI
+        env:
+          SYSDASH_DATA: ${{ runner.temp }}/sysdash
+        run: |
+          python sysdash.py --version
+          python sysdash.py report 1
+
+      - name: Server smoke test
+        env:
+          SYSDASH_DATA: ${{ runner.temp }}/sysdash
+          SYSDASH_PORT: "8799"
+        run: |
+          python sysdash.py &
+          for i in $(seq 1 20); do curl -sf localhost:8799/api/stats > stats.json && break; sleep 0.5; done
+          python -c "import json; s = json.load(open('stats.json')); assert s['version'] and 'cpu' in s and 'disks' in s, s.keys()"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:8799/api/claude/scan)" = 403
+          kill %1
+
+      - name: Page scripts parse
+        run: |
+          node -e '
+            const html = require("fs").readFileSync("index.html", "utf8");
+            for (const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new Function(m[1]);
+            console.log("ok");'
+
+      - name: Shell scripts
+        run: shellcheck install.sh uninstall.sh

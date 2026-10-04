@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+# runtime data (lives in ~/.local/state/sysdash by default, but never commit it if SYSDASH_DATA points here)
+*.db
+*.db-shm
+*.db-wal
+netusage.json
+reports/
+notes.md
